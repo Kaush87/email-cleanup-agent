@@ -26,8 +26,8 @@ def load_senders():
 @app.route("/cleanup", methods=["GET"])
 def cleanup():
     try:
-        # 🔐 API key validation
-        key = request.args.get("key")
+        # 🔐 Header-based API key check
+        key = request.headers.get("x-api-key")
         if key != API_KEY:
             return jsonify({"status": "unauthorized"}), 401
 
@@ -38,20 +38,17 @@ def cleanup():
         SENDERS = load_senders()
         all_email_ids = []
 
-        # Search emails for each sender
         for sender in SENDERS:
             result, data = mail.search(None, f'(FROM "{sender}")')
             email_ids = data[0].split()
             all_email_ids.extend(email_ids)
 
-        # Remove duplicates
         all_email_ids = list(set(all_email_ids))
 
         deleted_count = 0
 
-        # Move to Trash instead of permanent delete
         for email_id in all_email_ids:
-            mail.copy(email_id, "Trash")  # if not working, try "[Yahoo]/Trash"
+            mail.copy(email_id, "Trash")
             mail.store(email_id, "+FLAGS", "\\Deleted")
             deleted_count += 1
 
