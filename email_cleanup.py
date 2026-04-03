@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import imaplib
 import os
 from dotenv import load_dotenv
@@ -9,6 +9,7 @@ app = Flask(__name__)
 load_dotenv()
 EMAIL = os.getenv("EMAIL")
 PASSWORD = os.getenv("PASSWORD")
+API_KEY = os.getenv("API_KEY")
 
 # Load senders from file
 def load_senders():
@@ -25,6 +26,11 @@ def load_senders():
 @app.route("/cleanup", methods=["GET"])
 def cleanup():
     try:
+        # 🔐 API key validation
+        key = request.args.get("key")
+        if key != API_KEY:
+            return jsonify({"status": "unauthorized"}), 401
+
         mail = imaplib.IMAP4_SSL("imap.mail.yahoo.com")
         mail.login(EMAIL, PASSWORD)
         mail.select("inbox")
@@ -45,7 +51,7 @@ def cleanup():
 
         # Move to Trash instead of permanent delete
         for email_id in all_email_ids:
-            mail.copy(email_id, "Trash")  # Move to Trash
+            mail.copy(email_id, "Trash")  # if not working, try "[Yahoo]/Trash"
             mail.store(email_id, "+FLAGS", "\\Deleted")
             deleted_count += 1
 
@@ -66,4 +72,4 @@ def cleanup():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)
