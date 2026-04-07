@@ -23,10 +23,16 @@ def load_senders():
     except FileNotFoundError:
         return []
 
+# ✅ Health endpoint (no auth required)
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok"})
+
+# 🔐 Secure cleanup endpoint
 @app.route("/cleanup", methods=["GET"])
 def cleanup():
     try:
-        # 🔐 Header-based API key check
+        # API key validation
         key = request.headers.get("x-api-key")
         if key != API_KEY:
             return jsonify({"status": "unauthorized"}), 401
@@ -38,17 +44,20 @@ def cleanup():
         SENDERS = load_senders()
         all_email_ids = []
 
+        # Search emails for each sender
         for sender in SENDERS:
             result, data = mail.search(None, f'(FROM "{sender}")')
             email_ids = data[0].split()
             all_email_ids.extend(email_ids)
 
+        # Remove duplicates
         all_email_ids = list(set(all_email_ids))
 
         deleted_count = 0
 
+        # Move emails to Trash instead of permanent delete
         for email_id in all_email_ids:
-            mail.copy(email_id, "Trash")
+            mail.copy(email_id, "Trash")  # If needed, try "[Yahoo]/Trash"
             mail.store(email_id, "+FLAGS", "\\Deleted")
             deleted_count += 1
 
@@ -67,6 +76,7 @@ def cleanup():
             "message": str(e)
         })
 
+# Run app (Render-compatible)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
