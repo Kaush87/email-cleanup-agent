@@ -42,31 +42,32 @@ def cleanup():
         mail.select("inbox")
 
         SENDERS = load_senders()
-        all_email_ids = []
 
-        # Search emails for each sender
+        # Process emails in batches
+        batch_size = 20
+        total_deleted = 0
+
         for sender in SENDERS:
             result, data = mail.search(None, f'(FROM "{sender}")')
             email_ids = data[0].split()
-            all_email_ids.extend(email_ids)
 
-        # Remove duplicates
-        all_email_ids = list(set(all_email_ids))
+            # Continue processing until all emails are deleted
+            while email_ids:
+                batch = email_ids[:batch_size]
+                email_ids = email_ids[batch_size:]
 
-        deleted_count = 0
+                for email_id in batch:
+                    mail.copy(email_id, "Trash")  # If needed, try "[Yahoo]/Trash"
+                    mail.store(email_id, "+FLAGS", "\\Deleted")
+                    total_deleted += 1
 
-        # Move emails to Trash instead of permanent delete
-        for email_id in all_email_ids:
-            mail.copy(email_id, "Trash")  # If needed, try "[Yahoo]/Trash"
-            mail.store(email_id, "+FLAGS", "\\Deleted")
-            deleted_count += 1
+                mail.expunge()
 
-        mail.expunge()
         mail.logout()
 
         return jsonify({
             "status": "success",
-            "deleted_emails": deleted_count,
+            "deleted_emails": total_deleted,
             "senders_checked": SENDERS
         })
 
